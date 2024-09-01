@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "ESNext", // or "commonjs" if needed
+    "target": "ES6",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true // Add this line to skip type checking for libraries
+  }
+}
