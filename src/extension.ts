@@ -18,7 +18,12 @@ type ChromeEvents = {
   RECEIVE_OPEN_FILES: { prompt: string; files: { path: string; content: string }[] };
 };
 
+type WorkerEvents = {
+  CODE_SNIPPET: { snippet: string };
+};
+
 const chrome = new BrightBaseRealtime<ChromeEvents>('vscode-chrome');
+const worker = new BrightBaseRealtime<WorkerEvents>('worker');
 
 const subscriptions = [];
 
@@ -55,6 +60,17 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('vscmd.listen', () => {
       [
+        worker.subscribe(),
+        worker.on('CODE_SNIPPET', ({ snippet }) => {
+          const editor = vscode.window.activeTextEditor;
+          if (!editor) {
+            vscode.window.showInformationMessage('No active text editor');
+            return;
+          }
+          editor.edit((editBuilder) => {
+            editBuilder.insert(editor.selection.start, snippet);
+          });
+        }),
         chrome.subscribe(),
         chrome.on('CONNECTED', () => chrome.emit('CONNECTED', {})),
         chrome.on('GET_OPEN_FILES', ({ prompt }) => {
