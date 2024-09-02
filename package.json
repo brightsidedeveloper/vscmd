@@ -1,7 +1,7 @@
 {
-  "name": "chrome-gpt-fire",
-  "displayName": "chrome-gpt-fire",
-  "description": "Take code from vscode folder we in and put send over realtime channel w supabase",
+  "name": "vscmd",
+  "displayName": "vscmd",
+  "description": "Too Fire",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.92.0"
@@ -15,20 +15,20 @@
   "contributes": {
     "commands": [
       {
-        "command": "chrome-gpt-fire.sendOpenFiles",
-        "title": "Send Open"
+        "command": "vscmd.getSelectedCode",
+        "title": "Get Selected Code"
       },
       {
-        "command": "chrome-gpt-fire.sendOpenWithQuery",
-        "title": "Query Open"
+        "command": "vscmd.getOpenFiles",
+        "title": "Get Open Files"
       },
       {
-        "command": "chrome-gpt-fire.sendSelection",
-        "title": "Send Selected"
+        "command": "vscmd.listen",
+        "title": "Listen"
       },
       {
-        "command": "chrome-gpt-fire.sendSelectionWithQuery",
-        "title": "Query Selected"
+        "command": "vscmd.stopListening",
+        "title": "Stop Listening"
       }
     ]
   },

@@ -5,23 +5,24 @@ import * as vscode from 'vscode';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
-
 initBrightBase(
   'https://ybpjdhzaqaogrojgsjxh.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicGpkaHphcWFvZ3JvamdzanhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDYzNzMyOTYsImV4cCI6MjAyMTk0OTI5Nn0.CWTPdwYlV1g6Zif2dKRfVJHK8xwxNhS8gb9Sg3EY4Dg'
 );
 
-type Events = {
-  test: {
-    files: { path: string; content: string }[];
-  };
+type ChromeEvents = {
+  CONNECTED: {};
+  GET_SELECTED_CODE: { prompt: string };
+  GET_OPEN_FILES: { prompt: string };
+  RECEIVE_SELECTED_CODE: { prompt: string; code: string; fileName: string };
+  RECEIVE_OPEN_FILES: { prompt: string; files: { path: string; content: string }[] };
 };
 
-const chrome = new BrightBaseRealtime<Events>('vscode');
+const chrome = new BrightBaseRealtime<ChromeEvents>('vscode-chrome');
+
+const subscriptions = [];
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Chrome Voice GPT Extension is now active!');
-
   const getFiles = () => {
     const openEditors = vscode.window.visibleTextEditors;
 
@@ -33,63 +34,43 @@ export function activate(context: vscode.ExtensionContext) {
     return files;
   };
 
-  const disposables = [
-    vscode.commands.registerCommand('chrome-gpt-fire.sendOpenFiles', () => {
-      chrome.emit('send-files', { files: getFiles() });
-      vscode.window.showInformationMessage('Sending files to Chrome Voice GPT Extension');
+  const disposables: vscode.Disposable[] = [
+    vscode.commands.registerCommand('vscmd.getOpenFiles', (prompt: string) => {
+      chrome.emit('RECEIVE_OPEN_FILES', { files: getFiles(), prompt });
     }),
-    vscode.commands.registerCommand('chrome-gpt-fire.sendOpenWithQuery', () => {
-      vscode.window.showInputBox({ prompt: 'Enter your query' }).then((query) => {
-        if (!query) {
-          vscode.window.showInformationMessage('No query entered');
-          return;
-        }
-
-        chrome.emit('send-files-with-query', { files: getFiles(), query });
-        vscode.window.showInformationMessage('Sending files to Chrome Voice GPT Extension');
-      });
-    }),
-    vscode.commands.registerCommand('chrome-gpt-fire.sendSelection', () => {
+    vscode.commands.registerCommand('vscmd.getSelectedCode', (prompt: string) => {
+      const split = getFiles()[0]?.path.split('\\');
+      if (!split) {
+        return;
+      }
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showInformationMessage('No active text editor');
         return;
       }
 
-      const selection = editor.selection;
-      const selectedText = editor.document.getText(selection);
-
-      if (!selectedText) {
-        vscode.window.showInformationMessage('No text selected');
-        return;
-      }
-
-      chrome.emit('send-selection', { code: selectedText });
+      const code = editor.document.getText(editor.selection);
+      const fileName = split[split.length - 1];
+      chrome.emit('RECEIVE_SELECTED_CODE', { fileName, code, prompt });
     }),
-    vscode.commands.registerCommand('chrome-gpt-fire.sendSelectionWithQuery', () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        vscode.window.showInformationMessage('No active text editor');
-        return;
-      }
-
-      const selection = editor.selection;
-      const selectedText = editor.document.getText(selection);
-
-      if (!selectedText) {
-        vscode.window.showInformationMessage('No text selected');
-        return;
-      }
-
-      vscode.window.showInputBox({ prompt: 'Enter your query' }).then((query) => {
-        if (!query) {
-          vscode.window.showInformationMessage('No query entered');
-          return;
-        }
-
-        chrome.emit('send-selection-with-query', { code: selectedText, query });
-        vscode.window.showInformationMessage('Sending code selection to Chrome Voice GPT Extension');
-      });
+    vscode.commands.registerCommand('vscmd.listen', () => {
+      [
+        chrome.subscribe(),
+        chrome.on('CONNECTED', () => chrome.emit('CONNECTED', {})),
+        chrome.on('GET_OPEN_FILES', ({ prompt }) => {
+          vscode.window.showInformationMessage(prompt);
+          vscode.commands.executeCommand('vscmd.getOpenFiles', prompt);
+        }),
+        chrome.on('GET_SELECTED_CODE', ({ prompt }) => {
+          vscode.window.showInformationMessage(prompt);
+          vscode.commands.executeCommand('vscmd.getSelectedCode', prompt);
+        }),
+      ].forEach((subscription) => subscriptions.push(subscription));
+      chrome.emit('CONNECTED', {});
+    }),
+    vscode.commands.registerCommand('vscmd.stopListening', () => {
+      chrome.emit('DISCONNECTED', {});
+      subscriptions.forEach((dispose) => dispose());
     }),
   ];
 
@@ -97,4 +78,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  chrome.emit('DISCONNECTED', {});
+  subscriptions.forEach((subscription) => subscription.dispose());
+}
